@@ -2,6 +2,33 @@
 ## library ##
 #############
 
+library(dplyr)
+library(Seurat)
+library(Giotto)  # remotes::install_github("drieslab/Giotto",  ref="v1.1.0")
+
+# step1: Load unprecess data and proir database
+load("/path/to/data/prior_databases.rda")
+load("/path/to/data/unprocessed_ex_inputs.rda")
+
+de_count <- ex_raw_inputs$Mat
+de_cell_type <- ex_raw_inputs$annoMat
+de_coords <- ex_raw_inputs$locaMat
+
+ex_inputs <- Select_Lig_Rec_TGs(ExprMat = de_count, 
+                                AnnoMat = de_cell_type, 
+                                LocaMat = de_coords, 
+                                Databases = ex_databases, 
+                                python_path = "/path/to/python.exe", # python.exe path for Giotto
+                                min.pct = 0.05, 
+                                expr.ct = 0.1, 
+                                pct.ct = 0.05)
+
+# step2: run scMLnet
+load('/path/to/data/prior_database.rda')
+str(Databases,max.level=2)
+load('/path/to/data/ex_inputs.rda')
+str(ex_inputs,max.level=2)
+
 library(Seurat)
 library(tidyverse)
 library(stMLnet)
@@ -10,61 +37,16 @@ library(ggalluvial)
 
 rm(list=ls())
 gc()
-setwd("/home/cjy/project/giotto_seqfish_dataset/")
 
-source('../code/code.R')
-
-###############
-## get MLnet ##
-###############
-
-## load ####
-
-load('./giotto_seqfish_output.rda')
-Databases <- readRDS('../prior_knowledge/output/Databases.rds')
-
-## data
-
-GCMat <- df_norm
-BarCluTable <- df_anno
-clusters <- BarCluTable$Cluster %>% as.character() %>% unique()
-clusters
-
-Ligs_up_list <- Ligs_expr_list
-ICGs_list <- lapply(ICGs_list, toupper)
-
-str(Ligs_up_list)
-str(Recs_expr_list)
-str(ICGs_list)
-
-## parameters
-
-wd <- paste0("./runscMLnet/")
-dir.create(wd,recursive = T)
-
-## database ####
-
-quan.cutoff = 0.98
-
-RecTF.DB <- Databases$RecTF.DB %>% 
-  .[.$score > quantile(.$score, quan.cutoff),] %>%
-  dplyr::distinct(source, target)
-
-LigRec.DB <- Databases$LigRec.DB %>%
-  dplyr::distinct(source, target) %>%
-  dplyr::filter(target %in% RecTF.DB$source)
-
-TFTG.DB <- Databases$TFTG.DB %>%
-  dplyr::distinct(source, target) %>%
-  dplyr::filter(source %in% RecTF.DB$target)
-
-## get multi-layer ####
+source('path/to/code/creat_multilayer_network.R')
 
 outputDir <- getwd()
 resMLnet <- runMLnet(ExprMat = ex_inputs$exprMat, AnnoMat = ex_inputs$annoMat,
                      LigClus = NULL, RecClus = 'Macrophage', Normalize = F, 
                      OutputDir = outputDir, Databases = NULL,
                      TGList=ex_inputs$tgs_of_inter, LigList=ex_inputs$ligs_of_inter, RecList=ex_inputs$recs_of_inter)
+
+
 
 
 
