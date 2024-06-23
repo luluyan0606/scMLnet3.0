@@ -15,8 +15,6 @@ library(ggalluvial)
 rm(list=ls())
 gc()
 
-source('path/to/code/check_feedback_loop.R')
-
 load("/path/to/data/unprocessed_ex_inputs.rda")
 
 ################
