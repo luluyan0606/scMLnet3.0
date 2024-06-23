@@ -6,15 +6,16 @@ library(tidyverse)
 rm(list = ls())
 gc()
 
-setwd("/home/yll/cell_cell_interaction/apply_in_scST/seqFISH/")
+setwd("path")
 
-load("~/cell_cell_interaction/stMLnet_cjy/apply_in_scST/giotto_seqfish_dataset/giotto_seqfish_output.rda")
+load("/path/to/data/unprocessed_ex_inputs.rda")
+
 ###########
 ## color ##
 ###########
 # celltype
 
-celltype <- unique(df_anno$Cluster)
+celltype <- unique(ex_raw_inputs$annoMat)
 
 scales::show_col(pal_igv(palette = "default", alpha = 0.8)(15))
 mycolors_nejm <- pal_igv(palette = "default", alpha = 0.8)(15)
