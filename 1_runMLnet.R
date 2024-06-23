@@ -2,10 +2,11 @@
 ## library ##
 #############
 
-library(Matrix)
-library(dplyr)
-library(parallel)
 library(Seurat)
+library(tidyverse)
+library(stMLnet)
+library(parallel)
+library(ggalluvial)
 
 rm(list=ls())
 gc()
@@ -59,39 +60,11 @@ TFTG.DB <- Databases$TFTG.DB %>%
 
 ## get multi-layer ####
 
-for(RecClu in clusters){
-  
-  LigClus = clusters[clusters != RecClu]
-  Output <- matrix(ncol = length(LigClus), nrow = 10) %>% as.data.frame()
-  MLnet_list <- list()
-  
-  for(i in 1:length(LigClus)){
-    
-    LigClu <- LigClus[i]
-    message(paste(LigClu,RecClu,sep = '-'))
-    
-    MLnet <- mainfunc(LigClu, RecClu, wd,RecTF.method = 'Search',TFTG.method = 'Fisher')
-    MLnet_list[[i]] <- MLnet
-    Output[,i] <- c(Ligs_up_list[[LigClu]] %>% length(),
-                    Recs_expr_list[[RecClu]] %>% length(),
-                    ICGs_list[[RecClu]] %>% length(),
-                    nrow(MLnet$LigRec),nrow(MLnet$RecTF),nrow(MLnet$TFTar),
-                    ifelse(nrow(MLnet$LigRec)==0,0,MLnet$LigRec$source %>% unique() %>% length()),
-                    ifelse(nrow(MLnet$LigRec)==0,0,MLnet$LigRec$target %>% unique() %>% length()),
-                    ifelse(nrow(MLnet$TFTar)==0,0,MLnet$TFTar$source %>% unique() %>% length()),
-                    ifelse(nrow(MLnet$TFTar)==0,0,MLnet$TFTar$target %>% unique() %>% length()))
-    
-    
-  }
-  names(MLnet_list) <- paste(LigClus,RecClu,sep = "_")
-  colnames(Output) <- paste(LigClus,RecClu,sep = "_")
-  rownames(Output) <- c('Lig_bk','Rec_bk','ICG_bk',
-                        "LRpair","RecTFpair","TFTGpair",
-                        "Ligand", "Receptor", "TF", "TG")
-  
-  write.csv(Output, file = paste0(wd,"/TME_",RecClu,".csv"))
-  
-}
+outputDir <- getwd()
+resMLnet <- runMLnet(ExprMat = ex_inputs$exprMat, AnnoMat = ex_inputs$annoMat,
+                     LigClus = NULL, RecClus = 'Macrophage', Normalize = F, 
+                     OutputDir = outputDir, Databases = NULL,
+                     TGList=ex_inputs$tgs_of_inter, LigList=ex_inputs$ligs_of_inter, RecList=ex_inputs$recs_of_inter)
 
 
 
