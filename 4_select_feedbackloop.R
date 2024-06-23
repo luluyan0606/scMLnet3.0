@@ -14,9 +14,10 @@ library(ggalluvial)
 
 rm(list=ls())
 gc()
-setwd("~/cell_cell_interaction/stMLnet_cjy/apply_in_COVID19/")
 
-source('../code/code.R')
+source('path/to/code/check_feedback_loop.R')
+
+load("/path/to/data/unprocessed_ex_inputs.rda")
 
 ################
 ## get detail ##
