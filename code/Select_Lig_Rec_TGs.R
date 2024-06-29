@@ -1,69 +1,34 @@
-Select_Lig_Rec_TGs <- function(ExprMat, AnnoMat, LocaMat, Databases, python_path, min.pct, expr.ct, pct.ct){
+Select_Lig_Rec_TGs <- function(ExprMat, AnnoMat, Databases, python_path,logfc.ct, min.pct, expr.ct, pct.ct){
   
   # workdir
   de_count = ExprMat
-  de_coords = LocaMat
   de_cell_type = AnnoMat
-  my_python_path = python_path
-  myinstr = createGiottoInstructions(python_path = my_python_path)
-  # Create a Giotto object 
-  gio_bc <- createGiottoObject(raw_exprs = de_count,
-                               spatial_locs = de_coords,
-                               instructions = myinstr)
   
-  gio_bc <- addCellMetadata(gobject = gio_bc, 
-                            new_metadata = de_cell_type$Cluster, 
-                            vector_name = "celltype")
-  
-  # normalize
-  gio_bc <- normalizeGiotto(gio_bc)
-  gio_bc <- addStatistics(gobject = gio_bc)
-  
-  # create a spatial Delaunay network (default)
-  gio_bc = createSpatialNetwork(gobject = gio_bc, method = "Delaunay")
-  
-  # select top 25th highest expressing genes
-  gene_metadata <- fDataDT(gio_bc)
-  lapply(seq(0.1,1,0.05), quantile, x = gene_metadata$mean_expr_det, na.rm = T) %>% unlist()
-  high_expressed_genes = gene_metadata[mean_expr_det > 0.75]$gene_ID  # mean_expr_det > 0.75
-  
-  # identify ICGs
-  CPGscoresHighGenes =  findICG(gobject = gio_bc, 
-                                selected_genes = high_expressed_genes,
-                                spatial_network_name = 'Delaunay_network',
-                                cluster_column = 'celltype',
-                                diff_test = 'permutation', 
-                                adjust_method = 'fdr',
-                                nr_permutations = 500,
-                                do_parallel = T, cores = 6)
-  
-  # filter ICGs
-  CPGscoresFilt = filterICG(CPGscoresHighGenes, direction = "both")
-  table(CPGscoresFilt$CPGscores$spec_int[CPGscoresFilt$CPGscores$cell_type=="Malignant"])
-  ICGs_list = lapply(unique(CPGscoresFilt$CPGscores$cell_type), function(x){
-    y=CPGscoresFilt$CPGscores[CPGscoresFilt$CPGscores$cell_type==x,]
-    z=lapply(unique(y$int_cell_type), function(t){
-      y$genes[y$int_cell_type==t]
-    })
-    names(z)=unique(y$int_cell_type)
-    z
-  })
-  names(ICGs_list) = unique(CPGscoresFilt$CPGscores$cell_type)
-  str(ICGs_list)
-  
-  # calculate ligand list
+  # Create a Seurat object 
   rownames(de_cell_type) <- de_cell_type$Barcode
-  st_bc_A_RCTD <- CreateSeuratObject(counts = de_count, meta.data = de_cell_type, assay = 'Spatial')
-  st_bc_A_RCTD <- SCTransform(st_bc_A_RCTD, assay = 'Spatial')
-  Idents(st_bc_A_RCTD) <- st_bc_A_RCTD@meta.data$Cluster
+  seur <- CreateSeuratObject(counts = de_count, meta.data = de_cell_type)
   
+  # normalize + find HVGs + scale
+  seur <- NormalizeData(seur, normalization.method = "LogNormalize", scale.factor = 10000)
+  seur <- FindVariableFeatures(seur, selection.method = "vst", nfeatures = 1000)
+  seur <- ScaleData(seur, features = rownames(seur.obj))
+  
+  Idents(seur) <- seur@meta.data$Cluster
+  df_DEGs <- FindAllMarkers(seur, logfc.threshold = 0.25, min.pct = 0.1)
+  DEGs_list <- df_DEGs[abs(df_DEGs$avg_log2FC) >= logfc.ct & 
+                       df_DEGs$p_val_adj <= 0.05 &
+                       df_DEGs$pct.1 >= 0.1,]
+  DEGs_list <- split(DEGs_list$gene,DEGs_list$cluster) # 按照cluster divides genes
+  str(DEGs_list)
+
+  # calculate ligand list
   ligs_in_db <- Databases$LigRec.DB$source %>% unique()
   ligs_in_db <- intersect(ligs_in_db, rownames(st_bc_A_RCTD))
   
-  clusters <- st_bc_A_RCTD@active.ident %>% as.character() %>% unique()
+  clusters <- seur@active.ident %>% as.character() %>% unique()
   df_markers_ligs <- lapply(clusters, function(cluster){
     
-    df <- FindMarkers(st_bc_A_RCTD, ident.1 = cluster, features = ligs_in_db, only.pos = T, 
+    df <- FindMarkers(seur, ident.1 = cluster, features = ligs_in_db, only.pos = T, 
                       min.pct = min.pct) 
     df$gene <- rownames(df)
     df$ident.1 <- cluster
@@ -75,8 +40,8 @@ Select_Lig_Rec_TGs <- function(ExprMat, AnnoMat, LocaMat, Databases, python_path
   str(Ligs_up_list)
   
   # calculate receptor list
-  data <- gio_bc@norm_expr
-  BarCluTable <- gio_bc@cell_metadata[,1:2]
+  data <- seur@assays$RNA@data
+  BarCluTable <- seur@cell_metadata[,1:2]
   colnames(BarCluTable) <- c('Barcode','Cluster')
   
   recs_in_db <- Databases$LigRec.DB$target %>% unique()
@@ -113,8 +78,7 @@ Select_Lig_Rec_TGs <- function(ExprMat, AnnoMat, LocaMat, Databases, python_path
   names(Recs_expr_list) <- clusters
   str(Recs_expr_list)
   
-  ex_inputs <- list(exprMat = data, annoMat = de_cell_type, locaMat = de_coords,
-                    ligs_of_inter = Ligs_up_list, recs_of_inter = Recs_expr_list,
+  ex_inputs <- list(exprMat = data, annoMat = de_cell_type,ligs_of_inter = Ligs_up_list, recs_of_inter = Recs_expr_list,
                     tgs_of_inter = ICGs_list)
   
   return(ex_inputs)
