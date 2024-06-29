@@ -13,13 +13,11 @@ load("/path/to/data/unprocessed_ex_inputs.rda")
 
 de_count <- ex_raw_inputs$Mat
 de_cell_type <- ex_raw_inputs$annoMat
-de_coords <- ex_raw_inputs$locaMat
 
 ex_inputs <- Select_Lig_Rec_TGs(ExprMat = de_count, 
                                 AnnoMat = de_cell_type, 
-                                LocaMat = de_coords, 
                                 Databases = ex_databases, 
-                                python_path = "/path/to/python.exe", # python.exe path for Giotto
+                                logfc.ct = 2,
                                 min.pct = 0.05, 
                                 expr.ct = 0.1, 
                                 pct.ct = 0.05)
