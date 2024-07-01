@@ -11,7 +11,7 @@ Select_Lig_Rec_TGs <- function(ExprMat, AnnoMat, Databases, python_path,logfc.ct
   # normalize + find HVGs + scale
   seur <- NormalizeData(seur, normalization.method = "LogNormalize", scale.factor = 10000)
   seur <- FindVariableFeatures(seur, selection.method = "vst", nfeatures = 1000)
-  seur <- ScaleData(seur, features = rownames(seur.obj))
+  seur <- ScaleData(seur, features = rownames(seur))
   
   Idents(seur) <- seur@meta.data$Cluster
   df_DEGs <- FindAllMarkers(seur, logfc.threshold = 0.25, min.pct = 0.1)
